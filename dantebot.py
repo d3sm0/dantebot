@@ -16,7 +16,7 @@ class Args():
 	num_layers =  3
 
 	# Training
-	learning_rate = 0.01
+	learning_rate = 0.00001
 	grad_clip = 5.
 	num_epochs = 50
 
@@ -27,7 +27,7 @@ class Args():
 	# Utils
 	data_dir = 'data'
 	save_dir = 'save'
-	save_every = 1000
+	save_every = 100
 	
 
 def main():
@@ -70,13 +70,16 @@ def train(args):
 					feed[h] = state[i].h
 
 				train_loss, state, _ = sess.run([model.cost, model.final_state, model.train_op], feed)
+				end = time.time()
+				
 				if(e*data_loader.num_batches+b) % args.save_every == 0:
 					summary_op = sess.run(model.summary_op, feed)
 					train_writer.add_summary(summary_op, e*data_loader.num_batches+b)
-					end = time.time()
+					
+					checkpoint_path = os.path.join(args.asave_dir, 'model.ckpt')
 					saver.save(sess, checkpoint_path, global_step = e*data_loader.num_batches + b)
 				print("{}/{}, epoch {} train_loss = {:.3f}, time/batch = {:.3f}".format(
-					e*data_loader.num_batches + b,args.num_epochs*data_loader.num_batches, 
+					e*data_loader.num_batches + b, args.num_epochs*data_loader.num_batches, 
 					e ,args.num_epochs, train_loss, end-start))
 
 if __name__ == '__main__':

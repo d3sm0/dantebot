@@ -18,7 +18,7 @@ class Model():
 	def __init__(self, args, infer = False):
 		self.args = args
 
-		cell = rnn_cell.LSTMCell(args.rnn_size, state_is_tuple = True, activation = tf.nn.elu)
+		cell = rnn_cell.LSTMCell(args.rnn_size, state_is_tuple = True)
 		self.cell = cell = rnn_cell.MultiRNNCell([cell] * args.num_layers, state_is_tuple = True)
 
 		with tf.name_scope('input'):
@@ -55,7 +55,7 @@ class Model():
 			tf.summary.histogram('pre_activations', self.logits)
 
 		with tf.name_scope('softmax'):
-			self.probs = tf.nn.softmax(self.logits)
+			self.probs = tf.nn.elu(self.logits)
 			tf.summary.histogram('activations', self.probs)
 
 		with tf.name_scope('cross_entropy'):
@@ -83,7 +83,7 @@ class Model():
 			grads , _ = tf.clip_by_global_norm(
 				tf.gradients(self.cost, tvars), args.grad_clip)
 
-			opt = tf.train.AdamOptimizer(self.lr)
+			opt = tf.train.AdamOptimizer()
 			# backprop
 			self.train_op = opt.apply_gradients(zip(grads,tvars))
 
