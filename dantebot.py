@@ -1,90 +1,70 @@
-import numpy as np
 import tensorflow as tf
 
-import time
-import os
-from six.moves import cPickle
-
-from utils import TextLoader
 from model import Model
+import utils
 
-# from model import Args
+import time
+
 
 class Args():
-	# RNN
-	rnn_size =  128
-	num_layers =  3
-
-	# Training
-	learning_rate = 0.00001
-	grad_clip = 5.
-	num_epochs = 50
-
-	# Processing
-	batch_size =  50
-	seq_len =  50
-
-	# Utils
-	data_dir = 'data'
-	save_dir = 'save'
-	save_every = 100
-	
+	batch_size = 50
+	seq_len = 25
+	rnn_size = 20
+	learning_rate = 1e-2
+	global_dropout = 0.98
+	num_layers = 2
+	num_epochs = 5
 
 def main():
 	args = Args()
-	train(args)
+	vocab_size, data = utils.parse_data(utils.load_data())
+	x_, y_, num_batches = utils.create_batches(data, args.seq_len, args.batch_size)
+	args.vocab_size = vocab_size
+	args.num_batches = num_batches
 
-def train(args):
-	args = args
-	data_loader = TextLoader(args.data_dir, args.batch_size, args.seq_len)
-	args.vocab_size = data_loader.vocab_size
+	train_network(x_, y_,args)
 
-	with open(os.path.join(args.save_dir, 'config.pkl'),'wb') as f:
-		cPickle.dump(args,f)
-	with open(os.path.join(args.save_dir, 'chars_vocab.pkl'),'wb') as f:
-		cPickle.dump((data_loader.chars, data_loader.vocab),f)
 
-	model = Model(args)
+def train_network(x_,y_,args):
 	
+	model = Model(args)
+	graph = model.build_graph(args)
+
 	with tf.Session() as sess:
 		
 		sess.run(tf.global_variables_initializer())
-
 		train_writer = tf.summary.FileWriter('train',sess.graph)
-		saver = tf.train.Saver(tf.global_variables())
 
-		for e in range(args.num_epochs):
+		steps = 0
+		tr_losses = []
+		training_state = None
+		
+		for e in range(1,args.num_epochs):
 
-			sess.run(tf.assign(model.lr, args.learning_rate))
-
-			data_loader.reset_batch_pointer()
-			
-			state = sess.run(model.init_state)
-			for b in range(data_loader.num_batches):
+			tr_loss = 0 
+			for p in range(args.num_batches):
 				start = time.time()
-				x,y =  data_loader.next_batch()
-				feed = {model.x: x, model.y: y}
+				feed = {graph['x'] : x_[p], graph['y'] : y_[p]}
 
-				for i, (c,h) in enumerate(model.init_state):
-					feed[c] = state[i].c
-					feed[h] = state[i].h
+				if training_state is not None:
+					feed[graph['init']] = training_state
 
-				train_loss, state, _ = sess.run([model.cost, model.final_state, model.train_op], feed)
-				end = time.time()
+				loss_, training_state, _ = sess.run([graph['loss'], 
+					graph['final_state'],  graph['train_step']],feed)
 				
-				if(e*data_loader.num_batches+b) % args.save_every == 0:
-					summary_op = sess.run(model.summary_op, feed)
+				tr_loss += loss_
+				end = time.time()
+
+				if p % 10 == 0:
+
+					tr_losses.append(tr_loss)
+					summary_op = sess.run(graph['summary_op'], feed)
 					train_writer.add_summary(summary_op, e*data_loader.num_batches+b)
-					
-					checkpoint_path = os.path.join(args.asave_dir, 'model.ckpt')
-					saver.save(sess, checkpoint_path, global_step = e*data_loader.num_batches + b)
-				print("{}/{}, epoch {} train_loss = {:.3f}, time/batch = {:.3f}".format(
-					e*data_loader.num_batches + b, args.num_epochs*data_loader.num_batches, 
-					e ,args.num_epochs, train_loss, end-start))
+
+					print('Average loss {}, per batch {} at epoch {}, time per batch {}'.format(tr_loss, p, e, end-start))
+
+			graph['saver'].save(sess, 'save/', global_step = e*args.num_batches+p)
+
 
 if __name__ == '__main__':
 	main()
-
-
-
-

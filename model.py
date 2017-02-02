@@ -1,90 +1,84 @@
 import tensorflow as tf
-
 from tensorflow.python.ops import rnn_cell
-from tensorflow.python.ops import seq2seq
-
-def variable_summaries(var):
-	with tf.name_scope('summaries'):
-		mean = tf.reduce_mean(var)
-		tf.summary.scalar('mean',var)
-		with tf.name_scope('sd'):
-			sd = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
-			tf.summary.scalar('sd', sd)
-			tf.summary.scalar('max',tf.reduce_max(var))
-			tf.summary.scalar('min',tf.reduce_min(var))
-			tf.summary.histogram('histogram',var)
 
 class Model():
-	def __init__(self, args, infer = False):
-		self.args = args
+	def __init__(self,args):
 
-		cell = rnn_cell.LSTMCell(args.rnn_size, state_is_tuple = True)
-		self.cell = cell = rnn_cell.MultiRNNCell([cell] * args.num_layers, state_is_tuple = True)
+		if args == None:
+			self.args = Args()
 
-		with tf.name_scope('input'):
-			self.x = tf.placeholder(tf.int32, [args.batch_size, args.seq_len])
-			self.y = tf.placeholder(tf.int32, [args.batch_size, args.seq_len])
+	def build_graph(self, args):
 
-	# init state of the cells as 0
-		self.init_state = cell.zero_state(args.batch_size, tf.float32)
+		# input data
+		self.x = tf.placeholder(tf.int32,[args.batch_size, args.seq_len])
+		self.y = tf.placeholder(tf.int32,[args.batch_size, args.seq_len])
 
-		with tf.variable_scope('rnn'):
-				softmax_w = tf.get_variable('softmax_w', [args.rnn_size, args.vocab_size])
-				softmax_b = tf.get_variable('softmax_b', [args.vocab_size])
+		# cells 
+		cell = rnn_cell.GRUCell(args.rnn_size)
+		cell = tf.nn.rnn_cell.DropoutWrapper(cell, input_keep_prob=args.global_dropout)
+		cell = tf.nn.rnn_cell.MultiRNNCell([cell]*args.num_layers)
+		self.cell = tf.nn.rnn_cell.DropoutWrapper(cell, output_keep_prob=args.global_dropout)
 
-		# embedding
-		with tf.device('/cpu:0'):
-			embedding = tf.get_variable('embedding', [args.vocab_size, args.rnn_size])
-			input_lookup = tf.nn.embedding_lookup(embedding, self.x)
-			inputs = tf.split(1, args.seq_len, input_lookup)
-			# inputs list
-			inputs = [tf.squeeze(input_, [1]) for input_ in inputs]
+		self.init = cell.zero_state(args.batch_size, tf.float32)
 
-		def loop(prev, _):
-		    prev = tf.matmul(prev, softmax_w) + softmax_b
-		    prev_symbol = tf.stop_gradient(tf.argmax(prev, 1))
-		    return tf.nn.embedding_lookup(embedding, prev_symbol)
+		# embeddings
+		embeddings = tf.get_variable('embedding_matrix',[args.vocab_size, args.rnn_size])
 
-		with tf.name_scope('decoder'):
-			outputs, last_state = seq2seq.rnn_decoder(inputs, 
-			    self.init_state, cell, scope = 'rnn')
+		# array of batch_size * seq_len * rnn_size
+		rnn_inputs = tf.nn.embedding_lookup(embeddings, self.x)
 
-		with tf.name_scope('Wx_plus_b'):
-			self.output = tf.reshape(tf.concat(1, outputs),[-1,args.rnn_size])
-			self.logits = tf.matmul(self.output, softmax_w) + softmax_b
-			tf.summary.histogram('pre_activations', self.logits)
+		# rnn_outputs is an array of batch_size * seq_len * rnn_size
+		rnn_outputs, self.final_state = tf.nn.dynamic_rnn(self.cell, rnn_inputs, initial_state = self.init)
 
-		with tf.name_scope('softmax'):
-			self.probs = tf.nn.elu(self.logits)
-			tf.summary.histogram('activations', self.probs)
+		tf.summary.histogram('last_state',self.final_state)
 
-		with tf.name_scope('cross_entropy'):
-			cross_entropy = seq2seq.sequence_loss_by_example([self.logits],
-				[tf.reshape(self.y,[-1])],
-				[tf.ones([args.batch_size * args.seq_len])],
-				args.vocab_size)
-			tf.summary.histogram('cross_entropy', cross_entropy)
+		# weight and bias declaration
+		with tf.variable_scope('softmax') as scope:
+			W = tf.get_variable('W',[args.rnn_size, args.vocab_size])
+			b = tf.get_variable('b',[args.vocab_size], initializer=tf.constant_initializer(0.0))
 
-		with tf.name_scope('train_loss'):
-			# not sure that this make sense
-			self.cost = tf.reduce_sum(cross_entropy) / args.batch_size / args.seq_len
-			tf.summary.scalar('train_loss',self.cost)
+		# reshape vectors
+		# matrix of shape seq_len*batch_size, rnn_size
+		self.rnn_outputs = tf.reshape(rnn_outputs, [-1, args.rnn_size])
 
-		with tf.name_scope('state'):
-			self.final_state = last_state
-			tf.summary.histogram('last_state',self.final_state)
+		# array of len seq_len * batch_size
+		y_ = tf.reshape(self.y, [-1])
 
-		with tf.name_scope('train'):
-			
-			self.lr = tf.Variable(0.0, trainable=False)
-			tf.summary.scalar('lr',self.lr)
-			
-			tvars = tf.trainable_variables()
-			grads , _ = tf.clip_by_global_norm(
-				tf.gradients(self.cost, tvars), args.grad_clip)
+		# logits
+		self.logits = tf.matmul(self.rnn_outputs, W) + b
+		tf.summary.histogram('logits',self.logits)
 
-			opt = tf.train.AdamOptimizer()
-			# backprop
-			self.train_op = opt.apply_gradients(zip(grads,tvars))
+		# predictions
+		self.predictions = tf.nn.softmax(self.logits)
+		tf.summary.histogram('predictions',self.predictions)
 
+		# cross entropy
+		cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(self.logits, y_)
+
+		# loss
+		self.loss = tf.reduce_mean(cross_entropy)
+		tf.summary.scalar('loss',self.loss)
+
+		# backprop
+		self.train_step = tf.train.AdamOptimizer(args.learning_rate).minimize(self.loss)
+
+		# save current state
+		self.saver = tf.train.Saver()
+		
+		# merge summaries
 		self.summary_op = tf.summary.merge_all()
+
+		return dict(
+			x = self.x,
+			y = self.y,
+			init = self.init,
+			final_state = self.final_state,
+			loss = self.loss,
+			train_step = self.train_step,
+			predictions = self.predictions,
+			saver = self.saver
+			)
+
+
+
+
