@@ -19,7 +19,7 @@ class Model():
 		cell = tf.nn.rnn_cell.MultiRNNCell([cell]*args.num_layers)
 		self.cell = tf.nn.rnn_cell.DropoutWrapper(cell, output_keep_prob=args.global_dropout)
 
-		self.init = cell.zero_state(args.batch_size, tf.float32)
+		self.init = self.cell.zero_state(args.batch_size, tf.float32)
 
 		# embeddings
 		embeddings = tf.get_variable('embedding_matrix',[args.vocab_size, args.rnn_size])
@@ -76,7 +76,8 @@ class Model():
 			loss = self.loss,
 			train_step = self.train_step,
 			predictions = self.predictions,
-			saver = self.saver
+			saver = self.saver,
+			summary_op = self.summary_op
 			)
 
 

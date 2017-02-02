@@ -7,13 +7,13 @@ import time
 
 
 class Args():
-	batch_size = 50
-	seq_len = 25
-	rnn_size = 20
-	learning_rate = 1e-2
+	batch_size = 20
+	seq_len = 10
+	rnn_size = 150
+	learning_rate = 0.001
 	global_dropout = 0.98
-	num_layers = 2
-	num_epochs = 5
+	num_layers = 3
+	num_epochs = 5000
 
 def main():
 	args = Args()
@@ -59,7 +59,7 @@ def train_network(x_,y_,args):
 
 					tr_losses.append(tr_loss)
 					summary_op = sess.run(graph['summary_op'], feed)
-					train_writer.add_summary(summary_op, e*data_loader.num_batches+b)
+					train_writer.add_summary(summary_op, e*args.num_batches+p)
 
 					print('Average loss {}, per batch {} at epoch {}, time per batch {}'.format(tr_loss, p, e, end-start))
 
