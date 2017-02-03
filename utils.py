@@ -3,7 +3,7 @@ import numpy as np
 def load_data(file='data/dante.txt'):
 	with open(file, 'r') as f:
 	    raw_data = f.read()
-	    print('data loaded. Len of the text is {}'.format(len(raw_data)))
+	    print('Data loaded. Size of the dataset is {}'.format(len(raw_data)))
 	return raw_data
 
 def parse_data(raw_data):
@@ -12,7 +12,7 @@ def parse_data(raw_data):
 	idx_to_vocab = dict(enumerate(vocab))
 	vocab_to_idx = dict(zip(idx_to_vocab.values(), idx_to_vocab.keys()))
 	data = np.array([vocab_to_idx[c] for c in raw_data])
-	return (vocab_size, data)
+	return (vocab_size, data, (idx_to_vocab, vocab_to_idx))
 
 def create_batches(data, seq_len = 20, batch_size = 50):
 	num_batches = int(len(data)/seq_len/batch_size)
@@ -32,3 +32,7 @@ def create_batches(data, seq_len = 20, batch_size = 50):
 	y_batches = np.split(ydata, num_batches,1)
 
 	return(x_batches, y_batches, batch_size)
+
+def enc_dec(vocab):
+	
+	return(idx_to_vocab, vocab_to_idx)
