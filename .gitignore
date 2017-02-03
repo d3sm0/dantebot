@@ -3,3 +3,5 @@
 /train
 /__pycache__
 dantebot_debug.ipynb
+/.ipynb_checkpoints
+__pycache__
