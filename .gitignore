@@ -5,3 +5,5 @@
 dantebot_debug.ipynb
 /.ipynb_checkpoints
 /__pycache__
+true_model.py
+/debug

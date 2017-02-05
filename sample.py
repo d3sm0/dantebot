@@ -2,50 +2,45 @@ import utils
 import tensorflow as tf
 import numpy as np
 
-def talk(graph, enc, num_chars, save_dir='save/', prompt='e', a=5):
-
-	id_vocab = enc[0]
-	vocab_id = enc[1] 
+def talk(g, chars, vocab, num=200, prime='La ', save_dir='save/'):
 
 	with tf.Session() as sess:
 		sess.run(tf.global_variables_initializer())
+		saver = tf.train.Saver(tf.global_variables())
+		ckpt = tf.train.get_checkpoint_state(save_dir)
+		saver.restore(sess, ckpt.model_checkpoint_path)
 
-		# loading ckpt dir from save_dir
-		ckpt = tf.train.get_checkpoint_state('save/')
+		# init sampling
 
-		# load model
-		graph['saver'].restore(sess, ckpt.model_checkpoint_path)
+		state = sess.run(g.cell.zero_state(1, tf.float32))
 
-		state = None
-		char_id = vocab_id[prompt]
-		chars = [char_id]
+		for char in prime[:-1]:
+			x = np.zeros((1,1))
+			x[0,0] = vocab[char]
+			feed = {g.x: x, g.init :state}
+			state = sess.run([g.final_state], feed)
 
-		for ch in range(num_chars):
+		def weighted_pick(weights):
+			t = np.cumsum(weights)
+			s = np.sum(weights)
+			
+			return(int(np.searchsorted(t, np.random.rand(1)*s)))
 
-			if state != None:
-				feed = {graph['x']:[[char_id]], graph['init']:state}
-			else:
-				feed = {graph['x']:[[char_id]]}
-			preds, state = sess.run([graph['predictions'], graph['final_state']], feed)
+		ret = prime
+		# blank space
+		char = prime[-1]
+		for n in range(num):
+			x = np.zeros((1,1))
+			x[0,0] = vocab[char]
 
-			# return (81,) array
-			p = np.squeeze(preds)
+			feed = {g.x:x, g.init:state}
+			probs, state = sess.run([g.probs, g.final_state], feed)
 
-			# last 5 probs are the best
-			p_sort = np.argsort(p)
+			p = probs[0]
 
-			# lets' remove all exepct the top 5
-			p[p_sort[:-a]]=0
+			sample = weighted_pick(p)
 
-			# adjust probs
-			p = p /np.sum(p)
-
-			# return id of chosen char
-			char_id = np.random.choice(len(vocab_id),1, p=p)[0]
-
-			chars.append(char_id)
-
-	chars = map(lambda x: id_vocab[x], chars)
-
-	return(''.join(chars))
-
+			pred = chars[sample]
+			ret += pred
+			char = pred
+		return ret
