@@ -24,19 +24,17 @@ python dantebot.py --no-train
 
 Example:
 
-La quinte voglia
-l'Utar mirando moidenosi da ira,
-così omo!», nel fer dov' emmo uscure.
-Né poi, tal girando lor nel man diverse:
-con curice che feata mi fonana
-prima comporta per una spetta storpa
+La quinte voglia  
+l'Utar mirando moidenosi da ira,  
+così omo!», nel fer dov' emmo uscure.  
+Né poi, tal girando lor nel man diverse:  
+con curice che feata mi fonana  
+prima comporta per una spetta storpa  
 
 ## Model
 The dynamic recurrent recurrent multi-layer neural network made of LSTM cells, with elu activation function, wrapped in a dropout layer.
 
-(alt text)[model]
-
-[model]: https://gitlab.com/d3sm0/dantebot/ "dantebot_model"
+![dantebot model](https://gitlab.com/d3sm0/dantebot/raw/356311d1b856582d9b24a1b06c3f3ec8181313ef/save/dantebot.png)
 
 ## Parameters
 
