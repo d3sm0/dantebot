@@ -5,7 +5,7 @@ from tensorflow.python.ops import seq2seq
 class Model():
 
 	
-	def __init__(self, rnn_size = 158, num_layers = 3, learning_rate = 0.001, global_dropout = 0.9, grad_clip = 5.):
+	def __init__(self, rnn_size = 158, num_layers = 3, learning_rate = 0.001, global_dropout = 0.8, grad_clip = 5.):
 
 		self.rnn_size = rnn_size
 		self.num_layers = num_layers
@@ -21,7 +21,7 @@ class Model():
 			sess.close()
 		tf.reset_default_graph()
 
-	def build_graph(self, batch_size, seq_len, vocab_size, infer = False):
+	def build_graph(self, batch_size, seq_len, vocab_size, global_dropout):
 
 		# input data
 		self.x = tf.placeholder(tf.int32, [batch_size, seq_len])

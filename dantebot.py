@@ -37,7 +37,7 @@ def main(train):
 
 		batch_size = 1
 		seq_len = 1
-		g = graph.build_graph(batch_size, seq_len, data_loader.vocab_size)
+		g = graph.build_graph(batch_size, seq_len, data_loader.vocab_size, global_dropout=1)
 		print(talk(g, data_loader.chars,  data_loader.vocab))
 
 
