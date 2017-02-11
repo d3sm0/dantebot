@@ -1,9 +1,4 @@
 /old
-/save
-/train
-/__pycache__
-dantebot_debug.ipynb
+/save/old_training
 /.ipynb_checkpoints
-/__pycache__
-true_model.py
 /debug

@@ -7,6 +7,7 @@ from train import train_network
 from utils import TextLoader
 
 import time
+import argparse
 
 def main(train):
 	
@@ -41,4 +42,13 @@ def main(train):
 
 
 if __name__ == '__main__':
-	main(train=True)
+	parser = argparse.ArgumentParser()
+	parser.add_argument('--train', dest='train',action = 'store_true',
+                    help='Set True to activate training')
+	parser.add_argument('--no-train', dest='train', action='store_false',
+                    help='Set False to generate.')
+	parser.set_defaults(train=True)
+	
+	args = parser.parse_args()
+	
+	main(args.train)
